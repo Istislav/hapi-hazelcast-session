@@ -1,0 +1,43 @@
+{
+  "name": "hapi-hazelcast-session",
+  "version": "1.0.0",
+  "description": "Hapi session stored in Hazelcast",
+  "main": "session.js",
+  "scripts": {
+    "test": "tap --no-cov 'test/**/*.test.js'",
+    "lint": "standard | snazzy"
+  },
+  "precommit": [
+    "lint",
+    "test"
+  ],
+  "keywords": [
+    "hapi",
+    "hazelcast",
+    "plugin",
+    "server",
+    "session"
+  ],
+  "homepage": "https://github.com/istislav/hapi-hazelcast-session",
+  "bugs": "https://github.com/istislav/hapi-hazelcast-session/issues",
+  "license": "MIT",
+  "author": {
+    "name": "Istislav",
+    "email": "istislav.verterov@gmail.com",
+    "url": "http://istislav.ru/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/istislav/hapi-hazelcast-session.git"
+  },
+  "dependencies": {
+    "hoek": ">=5.0.3 <6",
+    "hazelcast-client": ">=0.10.0"
+  },
+  "devDependencies": {
+    "hapi": "^17"
+  },
+  "peerDependencies": {
+    "hapi": ">=17 <18"
+  }
+}
