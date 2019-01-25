@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const hoek = require('hoek');
 
 const defaultOptions = {
+    algorithm: 'sha256',
     host: '',
     cache: {
         segment: 'session'
@@ -14,13 +15,14 @@ const defaultOptions = {
     size: 16
 };
 
-let HazelcastClient = require('hazelcast-client').Client;
+
 let HazelcastConfig = require('hazelcast-client').Config;
 
 let hazelcastCfg = new HazelcastConfig.ClientConfig();
 
 const register = (server, options) => {
     const MAP_NAME = 'hapi_user_session';
+    let hazelClient;
 
     options = hoek.applyToDefaults(defaultOptions, options, true);
     if (options.host != '') {
@@ -31,6 +33,11 @@ const register = (server, options) => {
         if (typeof options.password != 'undefined' && options.password != '') {
             hazelcastCfg.groupConfig.password = options.password;
         }
+    }
+    if (options.hazelClient) {
+        hazelClient = options.hazelClient;
+    } else {
+        hazelClient = require('hazelcast-client').Client;
     }
 
     if (options.cache.expiresIn === undefined) {
@@ -52,6 +59,8 @@ const register = (server, options) => {
                 buffer.writeDoubleBE(expiresAt || Date.now() + options.expiresIn);
                 sessionId.push(buffer);
             }
+            // console.log('*****************', options);
+
             const hmac = crypto.createHmac(options.algorithm, options.key);
             sessionId.forEach(value => hmac.update(value));
             sessionId.push(hmac.digest());
@@ -61,7 +70,7 @@ const register = (server, options) => {
 
 
     const saveSession2Hazel = async function (sessionId, sess) {
-        let client = await HazelcastClient.newHazelcastClient(hazelcastCfg);
+        let client = await hazelClient.newHazelcastClient(hazelcastCfg);
         let session_map = await client.getMap(MAP_NAME);
         await session_map.put(sessionId, sess);
         client.shutdown();
@@ -70,7 +79,7 @@ const register = (server, options) => {
 
 
     const loadSessionFromHazel = async function (sessionId) {
-        let client = await HazelcastClient.newHazelcastClient(hazelcastCfg);
+        let client = await hazelClient.newHazelcastClient(hazelcastCfg);
         let session_map = await client.getMap(MAP_NAME);
         let sess = await session_map.get(sessionId);
         client.shutdown();
@@ -95,7 +104,10 @@ const register = (server, options) => {
         let expiresAt;
         if (options.key && options.expiresIn) {
             expiresAt = decodedSessionId.readDoubleBE(options.size);
+            let dt = Date.now();
+            console.log('*********&&&&&&&&&', expiresAt, dt, dt >= expiresAt, dt - expiresAt);
             if (Date.now() >= expiresAt) {
+                console.log('*********&&&&&&&&& OOOKKK');
                 return false;
             }
         }
