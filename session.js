@@ -34,7 +34,7 @@ const register = (server, options) => {
             hazelcastCfg.groupConfig.password = options.password;
         }
     }
-    if (options.hazelClient) {
+    if (typeof options.hazelClient !== 'undefined') {
         hazelClient = options.hazelClient;
     } else {
         hazelClient = require('hazelcast-client').Client;
@@ -50,6 +50,8 @@ const register = (server, options) => {
 
     server.state(options.name, options.cookie);
 
+    const cacheOptions = options.cache;
+
     const createSessionId = (randomBytes, expiresAt) => {
         const sessionId = [randomBytes || crypto.randomBytes(options.size)];
 
@@ -59,7 +61,6 @@ const register = (server, options) => {
                 buffer.writeDoubleBE(expiresAt || Date.now() + options.expiresIn);
                 sessionId.push(buffer);
             }
-            // console.log('*****************', options);
 
             const hmac = crypto.createHmac(options.algorithm, options.key);
             sessionId.forEach(value => hmac.update(value));
@@ -72,7 +73,8 @@ const register = (server, options) => {
     const saveSession2Hazel = async function (sessionId, sess) {
         let client = await hazelClient.newHazelcastClient(hazelcastCfg);
         let session_map = await client.getMap(MAP_NAME);
-        await session_map.put(sessionId, sess);
+        let expire = Date.now() + cacheOptions.expiresIn;
+        await session_map.put(sessionId, { expire, content: sess });
         client.shutdown();
         return sess;
     };
@@ -81,7 +83,11 @@ const register = (server, options) => {
     const loadSessionFromHazel = async function (sessionId) {
         let client = await hazelClient.newHazelcastClient(hazelcastCfg);
         let session_map = await client.getMap(MAP_NAME);
-        let sess = await session_map.get(sessionId);
+        let cache = await session_map.get(sessionId);
+        let sess = {};
+        if (Date.now() < cache.expire) {
+            sess = cache.content;
+        }
         client.shutdown();
         return sess;
     };
@@ -104,10 +110,7 @@ const register = (server, options) => {
         let expiresAt;
         if (options.key && options.expiresIn) {
             expiresAt = decodedSessionId.readDoubleBE(options.size);
-            let dt = Date.now();
-            console.log('*********&&&&&&&&&', expiresAt, dt, dt >= expiresAt, dt - expiresAt);
             if (Date.now() >= expiresAt) {
-                console.log('*********&&&&&&&&& OOOKKK');
                 return false;
             }
         }
@@ -120,7 +123,6 @@ const register = (server, options) => {
             if (isValidSessionId(sessionId)) {
                 const session = await loadSessionFromHazel(sessionId);
                 if (session) {
-                    console.log('SESSION EXISTS and VALID hazel', session);
                     request._sessionId = sessionId;
                     request.session = session;
                     request._session = hoek.clone(request.session);

@@ -40,7 +40,6 @@ const runServer = async (options, callback) => {
             url += '?test=' + options.value;
         }
         const headers = options.cookie ? { cookie: options.cookie } : {};
-        console.log('%%%%%%%%%%%%%%%%%%%%%%%1-5', { url, headers });
         return server.inject({ url, headers });
     });
     server.decorate('server', 'testInjectWithValue', () => server.testInject({ value: '1' }));
